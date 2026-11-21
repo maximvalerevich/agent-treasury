@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Treasury — policy-gated spending for AI agents</title>
+<meta name="description" content="Policy-gated spending layer for AI agents, built on MultiHopper programmable routing on Solana. TypeScript, 34 tests, verified end to end on devnet.">
+<style>
+  :root {
+    --bg: #0b0e11;
+    --panel: #11161b;
+    --panel-2: #141b21;
+    --line: #222c34;
+    --fg: #e6edf3;
+    --muted: #8b98a5;
+    --accent: #14f195;
+    --accent-dim: #0d9c61;
+    --warn: #f0b429;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  header { border-bottom: 1px solid var(--line); padding: 56px 0 40px; }
+  .eyebrow {
+    font: 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 18px;
+  }
+  h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.02em; }
+  .lede { font-size: clamp(16px, 2.2vw, 20px); color: var(--muted); max-width: 68ch; margin: 0 0 26px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; }
+  a.btn {
+    display: inline-block; text-decoration: none; font: 600 14px/1 var(--mono);
+    padding: 12px 18px; border-radius: 6px; border: 1px solid var(--line); color: var(--fg);
+    background: var(--panel);
+  }
+  a.btn.primary { background: var(--accent); color: #04270f; border-color: var(--accent); }
+  a.btn:hover { border-color: var(--accent-dim); }
+  a.btn.primary:hover { filter: brightness(1.06); }
+  section { padding: 48px 0; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 22px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 + p.sub { color: var(--muted); margin: 0 0 24px; }
+  p { max-width: 76ch; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px 18px 16px; }
+  .card h3 { margin: 0 0 8px; font-size: 15px; letter-spacing: .01em; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; max-width: none; }
+  code, pre { font-family: var(--mono); }
+  code { font-size: 13px; color: var(--accent); background: #0f1a16; padding: 1px 5px; border-radius: 4px; }
+  pre {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.55; color: #cbd5e1; margin: 0 0 16px;
+  }
+  pre .g { color: var(--accent); } pre .d { color: var(--muted); } pre .y { color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  td.num { font-family: var(--mono); color: var(--accent); white-space: nowrap; }
+  .flow {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 24px 18px; font: 12.5px/1.9 var(--mono); color: var(--muted); overflow-x: auto;
+  }
+  .flow b { color: var(--fg); font-weight: 600; }
+  .flow .a { color: var(--accent); }
+  .pill { display: inline-block; font: 11px/1 var(--mono); padding: 4px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted); margin: 0 6px 6px 0; }
+  .pill.ok { color: var(--accent); border-color: #1d4a37; background: #0d1a14; }
+  .note { border-left: 2px solid var(--warn); padding: 2px 0 2px 14px; color: var(--muted); font-size: 14px; }
+  footer { padding: 32px 0 56px; color: var(--muted); font-size: 13px; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow">MultiHopper Build &amp; Route Challenge</p>
+    <h1>Agent Treasury</h1>
+    <p class="lede">
+      A policy gate between what an AI agent <em>wants</em> to pay and what it is
+      <em>allowed</em> to pay. Budget rules live outside the model; routing and signing
+      happen on Solana through MultiHopper; the ledger records everything.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/maximvalerevich/agent-treasury">Source on GitHub</a>
+      <a class="btn" href="https://github.com/maximvalerevich/agent-treasury#readme">README</a>
+      <a class="btn" href="https://dev-docs.multihopper.com/quickstart">MultiHopper docs</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>The gap this fills</h2>
+    <p class="sub">Giving an agent a wallet is easy. Giving it a wallet it cannot misuse is not.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Without a gate</h3>
+        <p>Either a human approves every transfer, so the agent is a script with extra steps, or the agent holds the key and one bad prompt drains the treasury.</p>
+      </div>
+      <div class="card">
+        <h3>What MultiHopper provides</h3>
+        <p>Programmable, compliance-screened multi-hop routing. It makes the route a product decision. It does not decide who may spend what.</p>
+      </div>
+      <div class="card">
+        <h3>What this adds</h3>
+        <p>Per-transaction and daily limits, recipient allowlists and an approval band, evaluated as a pure function before any network call, with the reason returned every time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Request path</h2>
+    <p class="sub">One intent in, one routed transfer out, with the decision attached to it.</p>
+    <div class="flow">
+<b>agent</b> <span class="d">POST /spend</span> { agentId, recipient, amountUsd, amountRaw }
+&nbsp;&nbsp;│
+&nbsp;&nbsp;├─▶ <span class="a">policy gate</span> <span class="d">pure function of request + limits + ledger</span>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <b>denied</b>&nbsp;&nbsp;&nbsp;<span class="d">over per-tx or daily limit, recipient not allowed</span>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <b>needs_approval</b> <span class="d">within limits but above the auto-approve band</span>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <b>approved</b>
+&nbsp;&nbsp;│
+&nbsp;&nbsp;├─▶ <span class="a">MultiHopper</span> <span class="d">estimate → create → prepare</span>
+&nbsp;&nbsp;├─▶ <span class="a">local signer</span> <span class="d">keeper funding → route init → orchestrator → sessions</span>
+&nbsp;&nbsp;├─▶ <span class="a">confirm-broadcast</span> <span class="d">every signature, once on chain</span>
+&nbsp;&nbsp;└─▶ <span class="a">ledger + webhooks</span> <span class="d">HMAC-verified events, terminal status</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Verified on devnet</h2>
+    <p class="sub">Numbers below come from live runs of this code against <code>devnet.multihopper.com/api/v1</code>. Devnet and mainnet are separate deployments, so they do not count as production volume.</p>
+    <table>
+      <thead>
+        <tr><th>Check</th><th>Result</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>npm test</code></td><td class="num">34 passed</td></tr>
+        <tr><td>Product run, 0.1 SOL over 3 hops</td><td class="num">transfer 1738 · completed</td></tr>
+        <tr><td>Quote accuracy</td><td class="num">99502487 lamports delivered</td></tr>
+        <tr><td>Integrator share, per route</td><td class="num">248756 lamports</td></tr>
+        <tr><td>Credited across completed routes</td><td class="num">995024 lamports · 4 payouts</td></tr>
+        <tr><td>On-chain settlement</td><td class="num">finalized · no errors</td></tr>
+      </tbody>
+    </table>
+    <p class="note">A three-hop devnet route reaches its terminal status in about five minutes and moves through <code>processing</code>, <code>active</code> then <code>completed</code>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Contract</h2>
+    <p class="sub">Small surface, typed end to end, and the reasons travel with the decision.</p>
+    <pre><span class="d">// POST /spend</span>
+{
+  "agentId":   "research-agent",
+  "recipient": "&lt;pubkey&gt;",
+  "amountUsd": 40,
+  "amountRaw": "100000000",
+  "memo":      "compute credits for 200 research tasks"
+}
+
+<span class="d">// 200</span>
+{
+  "decision": { "outcome": <span class="g">"approved"</span>,
+                "reasons": ["within per-transaction and daily limits"] },
+  "transfer": { "id": 1738, "status": <span class="g">"processing"</span> },
+  "signatures": ["5miGBFNN...", "435o9rzw..."]
+}</pre>
+    <p class="sub">Batch payouts reuse the same path: one route pays up to 20 wallets, and hops dominate cost, so extra destinations are nearly free.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What the live API actually does</h2>
+    <p class="sub">The published docs and the running service disagree in a few places. Each difference is handled here and pinned with a regression test.</p>
+    <div class="grid">
+      <div class="card"><h3>amountTokens is required</h3><p><code>POST /transfers</code> answers <code>BAD_REQUEST: amountTokens: Required</code> even though it reads as optional. Derived from the raw amount and decimals.</p></div>
+      <div class="card"><h3>Idempotency on prepare</h3><p>Every mutation needs the header, <code>prepare</code> included, or the API answers <code>MH_070</code>.</p></div>
+      <div class="card"><h3>Bodyless POSTs</h3><p>Declaring JSON with no body is refused by the API's Fastify layer, which is exactly what <code>prepare</code> looks like.</p></div>
+      <div class="card"><h3>Confirmation in one call</h3><p><code>confirm-broadcast</code> demands <code>routeInitSignatures</code> even in the first call, so the documented split confirmation fails.</p></div>
+      <div class="card"><h3>Inconsistent envelopes</h3><p><code>create</code> returns the transfer flat, <code>prepare</code> wraps it, and <code>routeInitTxs</code> arrives as <code>{ base64 }</code> objects. Normalised at the client.</p></div>
+      <div class="card"><h3>Signer detects the type</h3><p><code>orchestratorInitTx</code> arrives as a versioned v0 message although the docs promise a legacy transaction.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Run it</h2>
+    <pre>cp .env.example .env   <span class="d"># MH_API_KEY, TREASURY_KEYPAIR_B58, MH_WEBHOOK_SECRET</span>
+npm install
+npm run typecheck
+npm test
+RECIPIENT=&lt;devnet-pubkey&gt; npm run demo   <span class="d"># policy → estimate → routed transfer</span>
+npm run dev                             <span class="d"># agent HTTP API on :8787</span></pre>
+    <p>
+      <span class="pill">TypeScript</span>
+      <span class="pill">Solana</span>
+      <span class="pill">MultiHopper API v1</span>
+      <span class="pill">key custody local</span>
+      <span class="pill ok">CI green</span>
+      <span class="pill">MIT</span>
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Agent Treasury · <a href="https://github.com/maximvalerevich/agent-treasury">github.com/maximvalerevich/agent-treasury</a><br>
+    Devnet figures shown above are test-network results and do not represent production volume.
+  </div>
+</footer>
+
+</body>
+</html>
