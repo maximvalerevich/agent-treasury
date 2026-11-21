@@ -6,6 +6,8 @@ programmable routing on Solana. Submitted to the **MultiHopper Build & Route Cha
 
 TypeScript, no framework lock-in, 34 tests, verified end to end on Solana devnet.
 
+Product page: **https://maximvalerevich.github.io/agent-treasury/**
+
 ## The problem this solves
 
 Giving an agent a wallet is easy. Giving it a wallet it cannot misuse is not. Today
