@@ -85,9 +85,12 @@ export class AgentTreasury {
     const prepared = await this.client.prepare(transferId);
     const signatures = await signAndBroadcast(this.connection, keypair, prepared.preparedTxs);
 
-    // First confirm-broadcast right after keeperFundingTx, then the rest.
-    await this.client.confirmBroadcast(transferId, { keeperFundingSignature: signatures.keeperFundingSignature });
+    // The docs describe two confirm-broadcast calls (keeper funding first, then
+    // the rest). The live API rejects a keeper-only body with
+    // `BAD_REQUEST: routeInitSignatures: Required`, so the bundles are broadcast
+    // in the required order and confirmed once, with every signature.
     const activated = await this.client.confirmBroadcast(transferId, {
+      keeperFundingSignature: signatures.keeperFundingSignature,
       routeInitSignatures: signatures.routeInitSignatures,
       orchestratorInitSignature: signatures.orchestratorInitSignature,
       sessionInitSignatures: signatures.sessionInitSignatures,
@@ -145,10 +148,8 @@ export class AgentTreasury {
 
     const prepared = await this.client.prepare(created.transfer.id);
     const signatures = await signAndBroadcast(this.connection, keypair, prepared.preparedTxs);
-    await this.client.confirmBroadcast(created.transfer.id, {
-      keeperFundingSignature: signatures.keeperFundingSignature,
-    });
     const activated = await this.client.confirmBroadcast(created.transfer.id, {
+      keeperFundingSignature: signatures.keeperFundingSignature,
       routeInitSignatures: signatures.routeInitSignatures,
       orchestratorInitSignature: signatures.orchestratorInitSignature,
       sessionInitSignatures: signatures.sessionInitSignatures,

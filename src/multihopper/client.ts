@@ -5,9 +5,28 @@ import type {
   EstimateRequest,
   EstimateResponse,
   PrepareResponse,
+  PreparedTransactions,
   Transfer,
   TransferResponse,
 } from './types.js';
+
+/**
+ * Formats a raw base-unit amount as a decimal token amount the API accepts.
+ * The live API rejects `POST /transfers` without `amountTokens`
+ * (`BAD_REQUEST: amountTokens: Required`), so the client fills it whenever a
+ * caller leaves it out.
+ */
+export function formatTokenAmount(amountRaw: string, decimals: number): string {
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new Error(`tokenDecimals must be a non-negative integer, got ${decimals}`);
+  }
+  const digits = BigInt(amountRaw).toString();
+  if (decimals === 0) return digits;
+  const padded = digits.padStart(decimals + 1, '0');
+  const whole = padded.slice(0, padded.length - decimals);
+  const fraction = padded.slice(padded.length - decimals).replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction}` : whole;
+}
 
 export class MultiHopperError extends Error {
   constructor(
@@ -59,13 +78,17 @@ export class MultiHopperClient {
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    // Content-Type is set only when there is a body: the API's Fastify layer
+    // rejects a mutation that declares JSON but sends none
+    // (`FST_ERR_CTP_EMPTY_JSON_BODY`), which is what `POST /prepare` looks like.
+    const headers: Record<string, string> = {
+      'x-api-key': this.apiKey,
+      ...((init.headers ?? {}) as Record<string, string>),
+    };
+    if (init.body !== undefined) headers['Content-Type'] = 'application/json';
     const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
       ...init,
-      headers: {
-        'x-api-key': this.apiKey,
-        'Content-Type': 'application/json',
-        ...(init.headers ?? {}),
-      },
+      headers,
     });
     const text = await res.text();
     const body: unknown = text ? safeJson(text) : undefined;
@@ -89,30 +112,54 @@ export class MultiHopperClient {
     if (!req.recipientWallet && !req.destinations) {
       throw new Error('One of recipientWallet or destinations is required');
     }
-    return this.request<TransferResponse>('/transfers', {
+    const payload: CreateTransferRequest = {
+      ...req,
+      amountTokens: req.amountTokens ?? formatTokenAmount(req.amountRaw, req.tokenDecimals),
+    };
+    const body = await this.request<unknown>('/transfers', {
       method: 'POST',
       headers: { 'Idempotency-Key': idempotencyKey },
-      body: JSON.stringify(req),
+      body: JSON.stringify(payload),
     });
+    return normalizeTransfer(body);
   }
 
-  prepare(transferId: number): Promise<PrepareResponse> {
-    return this.request<PrepareResponse>(`/transfers/${transferId}/prepare`, { method: 'POST' });
+  async prepare(transferId: number, idempotencyKey: string = randomUUID()): Promise<PrepareResponse> {
+    const body = await this.request<unknown>(`/transfers/${transferId}/prepare`, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+    });
+    const wrapped = body as { transfer?: Transfer; preparedTxs?: PreparedTransactions };
+    const preparedTxs = wrapped.preparedTxs ?? (wrapped.transfer as { preparedTxs?: PreparedTransactions } | undefined)?.preparedTxs;
+    if (!preparedTxs) {
+      throw new MultiHopperError(`prepare returned no preparedTxs for transfer ${transferId}`, 200, body);
+    }
+    return { transfer: normalizeTransfer(body).transfer, preparedTxs };
   }
 
   /**
-   * Called TWICE per transfer: first right after keeperFundingTx is broadcast,
-   * then after the remaining bundles, which activates the transfer.
+   * Records broadcast signatures against a transfer order-side. The docs
+   * describe calling this twice (keeper funding first, then the rest), but the
+   * live API rejects a body without `routeInitSignatures`
+   * (`BAD_REQUEST: routeInitSignatures: Required`), so callers send every
+   * signature in one call once the bundles are on chain.
    */
-  confirmBroadcast(transferId: number, signatures: BroadcastSignatures): Promise<TransferResponse> {
-    return this.request<TransferResponse>(`/transfers/${transferId}/confirm-broadcast`, {
+  async confirmBroadcast(
+    transferId: number,
+    signatures: BroadcastSignatures,
+    idempotencyKey: string = randomUUID(),
+  ): Promise<TransferResponse> {
+    const body = await this.request<unknown>(`/transfers/${transferId}/confirm-broadcast`, {
       method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
       body: JSON.stringify(signatures),
     });
+    return normalizeTransfer(body);
   }
 
-  getTransfer(transferId: number): Promise<TransferResponse> {
-    return this.request<TransferResponse>(`/transfers/${transferId}`);
+  async getTransfer(transferId: number): Promise<TransferResponse> {
+    const body = await this.request<unknown>(`/transfers/${transferId}`);
+    return normalizeTransfer(body);
   }
 
   /** Polls until a terminal status is reached or the timeout elapses. */
@@ -136,4 +183,18 @@ function safeJson(text: string): unknown {
   } catch {
     return text;
   }
+}
+
+/**
+ * The live API is inconsistent about envelopes: `POST /transfers` and
+ * `GET /transfers/{id}` return the transfer object at the top level, while
+ * `prepare` and `confirm-broadcast` wrap it as `{ transfer }`. Normalise both so
+ * callers never have to care which endpoint they hit.
+ */
+export function normalizeTransfer(body: unknown): TransferResponse {
+  const wrapped = body as { transfer?: Transfer } | null;
+  if (wrapped && typeof wrapped === 'object' && wrapped.transfer) {
+    return { transfer: wrapped.transfer };
+  }
+  return { transfer: body as Transfer };
 }

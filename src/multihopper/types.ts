@@ -41,11 +41,18 @@ export interface CreateTransferRequest {
   externalId?: string;
 }
 
+/**
+ * A prepared bundle as the live API returns it: most fields are base64 strings,
+ * but `routeInitTxs` items come back as `{ base64 }` objects.
+ */
+export type PreparedTx = string | { base64: string };
+
 export interface PreparedTransactions {
-  routeInitTxs?: string[] | null;
-  orchestratorInitTx?: string | null;
-  sessionInitTxs?: string[] | null;
-  keeperFundingTx?: string | null;
+  routeInitTxs?: PreparedTx[] | null;
+  orchestratorInitTx?: PreparedTx | null;
+  sessionInitTxs?: PreparedTx[] | null;
+  keeperFundingTx?: PreparedTx | null;
+  dispersionInitTxs?: PreparedTx[] | null;
   recentBlockhash?: string;
   lastValidBlockHeight?: number;
 }
